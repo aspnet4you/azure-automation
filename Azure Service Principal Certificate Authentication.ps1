@@ -20,13 +20,19 @@ $secretname= 'secret-in-keyvault-used-4-cert-password'
 $KeyVaultName = 'azure-keyvault-name'
 $CertificateName  = 'cert-name-in-keyvault'
 $ApplicationId = 'azure-ad-application-id'
-$TenantId = 'azure-tenant-id'
-$subscriptionId = 'azure-subscription-id'
+$Tenant = 'your-tenant.onmicrosoft.com'
+$Subscription = 'your-subscription-name'
 $StorageAccountName = 'azure-storage-account-name'
 $StorageContainerName = 'container1'
 
-"Logging in to Azure... with managed identity"
-$managedIdentityCtx = Connect-AzAccount -Identity
+"Logging in to Azure..."
+#If you are running locally in PowerShell ISE, don't use the -Identity flag
+#Instead use your interactive elevated account. Be sure to configure RBAC permission accordingly.
+$managedIdentityCtx = Connect-AzAccount -Tenant $Tenant -Subscription $Subscription #run locally
+#$managedIdentityCtx = Connect-AzAccount -Tenant $Tenant -Subscription $Subscription  -Identity #run in Azure Automation
+
+$TenantId = $managedIdentityCtx.Context.Tenant.TenantId
+$subscriptionId = $managedIdentityCtx.Context.Subscription.Id
 
 #Check if PFX file is persisted between the jobs
 $folderPath = "$env:TEMP\mycerts"
@@ -47,9 +53,10 @@ if ($isCertExist -eq $false)
 # is configured accordingly.
 
 #Get the current version of a specific secret
-$certPassword = Get-AzKeyVaultSecret -VaultName $KeyVaultName -Name $secretname
+$certPassword = Get-AzKeyVaultSecret -VaultName $vaultName -Name $secretname
 
-#Get Certificate and Keys
+#Get Certificate and Key. PFX Certificate Key must be Exportable.
+#Certificate format should be PKCS #12 and Exportable Private Key is set to Yes.
 $cert = Get-AzKeyVaultCertificate -VaultName $KeyVaultName -Name $CertificateName
 $azKeyVaultSecret = Get-AzKeyVaultSecret -VaultName $keyVaultName -Name $cert.Name
 
@@ -92,3 +99,17 @@ $spCtx = Connect-AzAccount -ServicePrincipal -CertificateThumbprint $Thumbprint 
 #Read Azure Storage Blob Container
 $context = New-AzStorageContext -StorageAccountName  $StorageAccountName
 Get-AzStorageBlob -Container $StorageContainerName -Context $context | Select-Object -Property Name
+
+#Disconnect from Azure Contexts
+Disconnect-AzAccount -AzureContext $managedIdentityCtx.Context
+Disconnect-AzAccount -AzureContext $spCtx.Context
+
+
+#Delete PFX cert from local folder
+if ((Test-Path $pfxCertFile) -eq $true)
+{
+	Remove-Item -Path $pfxCertFile -Force | Out-Null
+}
+
+#Delete PFX cert from local Certificate Store
+Get-ChildItem Cert:\CurrentUser\My |Where-Object { $_.Thumbprint -match $Thumbprint } |Remove-Item
