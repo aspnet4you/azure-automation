@@ -29,7 +29,7 @@ $StorageContainerName = 'container1'
 #If you are running locally in PowerShell ISE, don't use the -Identity flag
 #Instead use your interactive elevated account. Be sure to configure RBAC permission accordingly.
 $managedIdentityCtx = Connect-AzAccount -Tenant $Tenant -Subscription $Subscription #run locally
-#$managedIdentityCtx = Connect-AzAccount -Tenant $Tenant -Subscription $Subscription  -Identity #run in Azure Automation
+#$managedIdentityCtx = Connect-AzAccount -Identity #run in Azure Automation
 
 $TenantId = $managedIdentityCtx.Context.Tenant.TenantId
 $subscriptionId = $managedIdentityCtx.Context.Subscription.Id
